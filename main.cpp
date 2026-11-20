@@ -66,6 +66,11 @@
 
 #define ROMROOT "/roms/arcade"
 
+// A と B を入れ替える (0 にすると元の配置)
+#ifndef GALAGINO_SWAP_AB
+#define GALAGINO_SWAP_AB 1
+#endif
+
 // 1: print the time spent emulating and drawing a frame, on average and at
 // worst, over the serial console every 5 seconds. For measuring a board.
 #ifndef GALAGINO_FRAME_STATS
@@ -1200,6 +1205,18 @@ static uint32_t readPads(uint16_t wii, uint32_t *pad2)
     if (wii & (1u << 7)) b |= B::RIGHT;
     if (wii & (1u << 8)) b |= B::X;
     if (wii & (1u << 9)) b |= B::Y;
+#if GALAGINO_SWAP_AB
+    // Swap A and B of every pad (both players) for the games and the game menu.
+    auto swapAB = [](uint32_t v) -> uint32_t {
+        const uint32_t ab = B::A | B::B;
+        uint32_t r = v & ~ab;
+        if (v & B::A) r |= B::B;
+        if (v & B::B) r |= B::A;
+        return r;
+    };
+    b = swapAB(b);
+    *pad2 = swapAB(*pad2);
+#endif
     return b;
 }
 

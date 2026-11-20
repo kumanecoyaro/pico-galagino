@@ -1,1 +1,43 @@
+name: Build (A/B swapped)
 
+# GitHub の Actions タブから「Run workflow」で手動実行、または push で実行。
+# できた .uf2 は実行結果ページの Artifacts からダウンロードできる。
+on:
+  workflow_dispatch:
+  push:
+    branches: ["**"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib ninja-build cmake
+
+      - name: Get Pico SDK, Pico-PIO-USB and picotool
+        run: |
+          git clone --depth 1 -b 2.3.1 https://github.com/raspberrypi/pico-sdk.git $HOME/pico-sdk
+          (cd $HOME/pico-sdk && git submodule update --init --depth 1)
+          git clone --depth 1 https://github.com/sekigon-gonnoc/Pico-PIO-USB.git $HOME/Pico-PIO-USB
+          git clone --depth 1 -b 2.3.1 https://github.com/raspberrypi/picotool.git $HOME/picotool
+          cmake -S $HOME/picotool -B $HOME/picotool/build -G Ninja -DPICO_SDK_PATH=$HOME/pico-sdk -DPICOTOOL_NO_LIBUSB=1
+          ninja -C $HOME/picotool/build
+          sudo cp $HOME/picotool/build/picotool /usr/local/bin/
+
+      - name: Build all .uf2
+        run: |
+          export PICO_SDK_PATH=$HOME/pico-sdk
+          export PICO_PIO_USB_PATH=$HOME/Pico-PIO-USB
+          chmod +x build*.sh bld.sh pico_shared/bld.sh
+          ./buildAll.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: picoGalagino-uf2
+          path: releases/*.uf2
